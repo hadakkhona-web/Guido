@@ -14,7 +14,7 @@ VALID_INTENTS = ["GUIDE_TO", "UNKNOWN"]
 
 
 class NLU:
-    def __init__(self, model: str = "gemma2:2b", ollama_url: str = "http://localhost:11434"):
+    def __init__(self, model: str = "gemma2:9b", ollama_url: str = "http://localhost:11434"):
         self.model = model
         self.url = f"{ollama_url}/api/chat"
         log.info(f"NLU initialized with model: {self.model}")
@@ -34,6 +34,15 @@ class NLU:
         except Exception as e:
             log.error(f"NLU failed: {e}")
             return "UNKNOWN", {}  # Safe fallback
+        
+    def warmup(self):
+        """Call this once at boot — loads Gemma into RAM so first real request is instant."""
+        log.info("Warming up NLU model...")
+        try:
+            self._ask_model("hello")
+            log.info("NLU model warm and ready.")
+        except Exception as e:
+            log.warning(f"Warmup failed (non-fatal): {e}")
 
     def _ask_model(self, user_input: str) -> str:
         """
@@ -75,17 +84,22 @@ class NLU:
             log.warning(f"Unexpected intent from model: '{intent}' → fallback to UNKNOWN")
             intent = "UNKNOWN"
 
+        # AFTER — fixed indentation + full word list
         entities = {}
         if destination:
             destination = destination.lower()
 
-            # remove common prefixes
-            for prefix in ["lab", "room", "bureau"]:
-                destination = destination.replace(prefix, "")
+            # strip possessives first ("youssef's" → "youssef")
+            destination = destination.replace("'s", "").replace("'s", "")
 
-                destination = destination.strip()
+            # strip common location words
+            noise_words = ["laboratory", "laboratoire", "office", "bureau", "room",
+                           "salle", "lab", "le", "la", "the", "to", "vers"]
+            for word in noise_words:
+                destination = destination.replace(word, "")
 
-                entities["destination"] = destination
+            destination = destination.strip()
+            entities["destination"] = destination
 
         return intent, entities
     

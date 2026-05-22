@@ -19,6 +19,12 @@ log = logging.getLogger(__name__)
 
 
 def boot():
+
+    nlu = NLU(model=config.MODEL_NAME, ollama_url=config.OLLAMA_URL)
+
+    speaker.say("One moment...")   # buys you time
+    nlu.warmup()                                   # blocks here once, ~15s
+
     log.info("Booting Guido...")
 
     # Initialize all components
